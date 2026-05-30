@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>COMMIT TIME MACHINE — WHEN DO YOU ACTUALLY CODE?</title>
+<meta name="description" content="Analyze your GitHub commit patterns. When do you code? How long is your streak? What's your style? Free, runs in your browser." />
+<meta property="og:title" content="COMMIT TIME MACHINE" />
+<meta property="og:description" content="WHEN DO YOU ACTUALLY CODE? Free GitHub commit pattern analyzer." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- NES playfield outer frame -->
+<div class="playfield-frame">
+  <div class="frame-stripe top"></div>
+
+  <!-- HUD bar -->
+  <div class="hud">
+    <span class="hud-left">1UP <span id="hudScore">0000000</span></span>
+    <span class="hud-center">COMMIT TIME MACHINE</span>
+    <span class="hud-right">HI-SCORE <span id="hudHiscore">0000000</span></span>
+  </div>
+
+  <!-- Main content -->
+  <div class="playfield-inner">
+
+    <header>
+      <h1>★ COMMIT TIME MACHINE ★</h1>
+      <p class="tagline">▶ PRESS START ◀</p>
+      <p class="sub-tagline">WHEN DO YOU ACTUALLY CODE?</p>
+    </header>
+
+    <main class="container">
+
+      <!-- FORM CARD -->
+      <section class="card form-card" id="formCard">
+        <!-- Option-menu style token section (hidden by default) -->
+        <div class="menu-label">ENTER PLAYER NAME</div>
+        <form id="form" autocomplete="off">
+          <div class="input-row">
+            <span class="input-cursor" id="inputCursor">▶</span>
+            <input id="username" type="text" placeholder="e.g. TORVALDS" required autofocus aria-label="GitHub username" />
+          </div>
+
+          <!-- Option menu for token -->
+          <div class="option-menu" id="tokenMenu">
+            <div class="option-item" id="tokenToggle" tabindex="0" role="button" aria-expanded="false" aria-controls="tokenPanel">
+              <span class="option-ptr" id="tokenPtr"> </span> INSERT TOKEN (OPTIONAL)
+            </div>
+            <div class="option-panel hidden" id="tokenPanel">
+              <input id="token" type="password" placeholder="GHP_... OR GITHUB_PAT_..." aria-label="GitHub personal access token (optional)" />
+              <p class="hint">
+                TOKEN STAYS IN YOUR BROWSER — NEVER SENT ANYWHERE EXCEPT API.GITHUB.COM.<br>
+                CREATE A READ-ONLY TOKEN AT <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GITHUB.COM/SETTINGS/TOKENS</a><br>
+                (NO SCOPES NEEDED FOR PUBLIC REPOS). RAISES LIMIT: 60→5000 REQ/HR.
+              </p>
+            </div>
+          </div>
+
+          <!-- Sound toggle -->
+          <div class="option-item sound-toggle" id="soundToggle" tabindex="0" role="button" aria-pressed="true">
+            <span class="option-ptr" id="soundPtr">▶</span> SOUND: <span id="soundLabel">ON</span>
+          </div>
+
+          <button type="submit" id="analyzeBtn" aria-label="Start analysis">▶ START GAME</button>
+        </form>
+        <p id="error" class="error" role="alert"></p>
+      </section>
+
+      <!-- LOADING / PROGRESS -->
+      <section class="card progress-card hidden" id="progressCard" aria-live="polite">
+        <div class="loading-spinner" id="loadingSpinner" aria-hidden="true">◐</div>
+        <p id="progressText">LOADING...</p>
+        <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+          <div id="progressFill"></div>
+        </div>
+        <p class="loading-stage" id="loadingStage">WORLD 1-1</p>
+      </section>
+
+      <!-- RESULTS -->
+      <section class="results hidden" id="results">
+
+        <!-- STAGE CLEAR banner (shown briefly) -->
+        <div class="stage-clear hidden" id="stageClear" aria-live="assertive">STAGE CLEAR!</div>
+
+        <!-- Hero stats -->
+        <div class="card hero-stats">
+          <div class="menu-label" id="userTitle">PLAYER ONE</div>
+          <div class="stats-grid">
+            <div class="stat" id="statCommits">
+              <div class="stat-num" id="totalCommits">0000000</div>
+              <div class="stat-label">POINTS</div>
+            </div>
+            <div class="stat" id="statRepos">
+              <div class="stat-num" id="totalRepos">000</div>
+              <div class="stat-label">WORLD</div>
+            </div>
+            <div class="stat" id="statYears">
+              <div class="stat-num" id="codingSpan">0.0</div>
+              <div class="stat-label">TIME (YRS)</div>
+            </div>
+            <div class="stat" id="statStreak">
+              <div class="stat-num" id="longestStreak">000</div>
+              <div class="stat-label">LIVES (STREAK)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hour chart — pixel blocks -->
+        <div class="card">
+          <h3>CLOCK: WHEN DO YOU CODE?</h3>
+          <div class="pixel-chart-wrap">
+            <div class="pixel-chart" id="hourChart" role="img" aria-label="Commit frequency by hour of day"></div>
+            <div class="pixel-chart-labels hour-labels" id="hourLabels"></div>
+          </div>
+          <p class="caption" id="peakHourCaption"></p>
+        </div>
+
+        <!-- Day chart — pixel blocks -->
+        <div class="card">
+          <h3>MAP: WHICH DAY?</h3>
+          <div class="pixel-chart-wrap">
+            <div class="pixel-chart" id="dayChart" role="img" aria-label="Commit frequency by day of week"></div>
+            <div class="pixel-chart-labels day-labels" id="dayLabels"></div>
+          </div>
+          <p class="caption" id="peakDayCaption"></p>
+        </div>
+
+        <!-- Top repos -->
+        <div class="card">
+          <h3>TOP REPOS</h3>
+          <ul class="ranking" id="topRepos"></ul>
+        </div>
+
+        <!-- Commit style -->
+        <div class="card">
+          <h3>COMMIT STYLE</h3>
+          <ul class="ranking" id="prefixes"></ul>
+          <p class="caption" id="prefixCaption"></p>
+        </div>
+
+        <!-- Story -->
+        <div class="card hero-stats">
+          <h3>STORY SO FAR</h3>
+          <p class="story" id="storyLine"></p>
+        </div>
+
+        <!-- HI-SCORE entry -->
+        <div class="card hiscore-card">
+          <h3>REGISTER HISCORE</h3>
+          <p class="hiscore-prompt">TYPE YOUR NAME:</p>
+          <div class="hiscore-input-row">
+            <span class="option-ptr">▶</span>
+            <input id="hiscoreName" type="text" maxlength="8" placeholder="PLAYER__" aria-label="Name for hi-score board (up to 8 characters)" />
+            <button id="saveHiscore" type="button" aria-label="Save hi-score">SAVE</button>
+          </div>
+          <div id="hiscoreBoard" class="hiscore-board"></div>
+        </div>
+
+        <!-- Share -->
+        <div class="card share-card">
+          <h3>SHARE RESULTS</h3>
+          <button id="copyBtn" type="button" aria-label="Copy summary to clipboard">COPY SUMMARY</button>
+          <button id="resetBtn" type="button" aria-label="Return to title screen">RETURN TO TITLE</button>
+        </div>
+
+      </section>
+
+      <!-- About -->
+      <section class="card about">
+        <p>PURE FRONTEND — YOUR DATA NEVER LEAVES YOUR BROWSER.</p>
+        <p>CODE ON <a href="https://github.com/zoetw88/commit-time-machine" target="_blank" rel="noopener">GITHUB</a>.</p>
+        <p>BUILT BY <a href="https://github.com/zoetw88" target="_blank" rel="noopener">@ZOETW88</a> · <a href="https://zoe-site-ten.vercel.app" target="_blank" rel="noopener">ZOE-SITE-TEN.VERCEL.APP</a></p>
+      </section>
+
+    </main>
+  </div><!-- /playfield-inner -->
+
+  <div class="frame-stripe bottom"></div>
+</div><!-- /playfield-frame -->
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
